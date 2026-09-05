@@ -1,0 +1,26 @@
+[project]
+name = "wpilot-agent"
+version = "0.1.0"
+description = "wpilot — backfill agent for volunteer-run shifts (Agents for Humans hackathon)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "strands-agents==1.54.0",
+  "bedrock-agentcore==1.22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

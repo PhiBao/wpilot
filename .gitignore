@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+*.log
+.DS_Store
+.env
+
+opencode.*
+AGENTS.md
+FOUNDER.md
+*.egg-info/

@@ -1,0 +1,9 @@
+volunteer_id,first_name,phone,email,tags,availability,reliability_score,is_adult
+V1,Maya,+15550001001,maya@example.org,food-handler;packing,weekday-mornings,0.92,true
+V2,Devon,+15550001002,devon@example.org,packing,weekday-mornings;weekends,0.81,true
+V3,Priya,+15550001003,priya@example.org,food-handler;distribution,weekday-afternoons,0.95,true
+V4,Sam,+15550001004,sam@example.org,packing;distribution,weekends,0.64,true
+V5,Jordan,+15550001005,jordan@example.org,driver-license;packing,saturday-mornings,0.88,true
+V6,Alex,+15550001006,alex@example.org,packing,weekday-mornings,0.43,true
+V7,Riley,+15550001007,riley@example.org,distribution,weekday-afternoons,0.77,false
+V8,Casey,+15550001008,casey@example.org,food-handler;packing;distribution,weekday-mornings;weekday-afternoons,0.90,true

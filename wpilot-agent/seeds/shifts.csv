@@ -1,0 +1,5 @@
+shift_id,date,start_time,end_time,role,slots_needed,slots_filled,eligibility_tags,location
+S1,2026-09-10,09:00,12:00,packing,6,5,,Harbor Pantry - Warehouse
+S2,2026-09-10,13:00,16:00,distribution,4,4,food-handler,Harbor Pantry - Front
+S3,2026-09-11,09:00,12:00,packing,6,6,,Harbor Pantry - Warehouse
+S4,2026-09-12,08:00,13:00,mobile-pantry,8,6,driver-license,Mobile Route East
