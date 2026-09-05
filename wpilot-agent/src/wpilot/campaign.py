@@ -120,7 +120,13 @@ class Engine:
         self, campaign_id: str, shift: Shift, volunteer: Volunteer
     ) -> str:
         body = offer_text(volunteer.first_name, shift, self.org_name)
-        msg = self.channel.send(volunteer.phone, body)
+        msg = self.channel.send(
+            volunteer.phone, body,
+            meta={"shift_id": shift.shift_id,
+                  "volunteer_id": volunteer.volunteer_id,
+                  "first_name": volunteer.first_name,
+                  "campaign_id": campaign_id},
+        )
         self.store.record_ask(campaign_id, volunteer.volunteer_id, shift.shift_id)
         self.store.add_receipt(
             campaign_id, "offer_sent",

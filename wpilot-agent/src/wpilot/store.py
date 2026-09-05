@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import csv
 import sqlite3
+import threading
+from functools import wraps
 from pathlib import Path
 
 from .models import Shift, Volunteer
@@ -68,14 +70,31 @@ def _join(tags: frozenset[str]) -> str:
     return ";".join(sorted(tags))
 
 
+def _locked(fn):
+    """Serialize SQLite access (server threadpool shares one connection)."""
+
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return fn(self, *args, **kwargs)
+
+    return wrapper
+
+
 class Store:
     """Tiny SQLite roster store. One file per org."""
 
     def __init__(self, path: str | Path = ":memory:") -> None:
-        self.conn = sqlite3.connect(str(path))
+        # check_same_thread=False: the demo server runs endpoints in a
+        # threadpool. All access is serialized by self._lock (RLock: gaps()
+        # calls shifts(), fill_slot() calls get_shift()).
+        self.conn = sqlite3.connect(str(path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
-        self.conn.executescript(SCHEMA)
+        self._lock = threading.RLock()
+        with self._lock:
+            self.conn.executescript(SCHEMA)
 
+    @_locked
     def import_csvs(self, shifts_csv: str | Path, volunteers_csv: str | Path) -> None:
         shifts = load_shifts_csv(shifts_csv)
         volunteers = load_volunteers_csv(volunteers_csv)
@@ -99,10 +118,12 @@ class Store:
                     ),
                 )
 
+    @_locked
     def shifts(self) -> list[Shift]:
         rows = self.conn.execute("SELECT * FROM shifts ORDER BY date, start_time").fetchall()
         return [self._row_to_shift(r) for r in rows]
 
+    @_locked
     def volunteers(self) -> list[Volunteer]:
         rows = self.conn.execute(
             "SELECT * FROM volunteers ORDER BY reliability_score DESC"
@@ -113,6 +134,7 @@ class Store:
         """Shifts with unfilled slots — the backfill workload."""
         return [s for s in self.shifts() if s.gap > 0]
 
+    @_locked
     def fill_slot(self, shift_id: str, campaign_id: str, detail: str) -> Shift:
         """Atomically increment slots_filled and record a receipt. Returns updated shift."""
         with self.conn:
@@ -134,6 +156,7 @@ class Store:
             )
         return self.get_shift(shift_id)
 
+    @_locked
     def add_receipt(self, campaign_id: str, kind: str, detail: str) -> None:
         with self.conn:
             self.conn.execute(
@@ -141,6 +164,7 @@ class Store:
                 (campaign_id, kind, detail),
             )
 
+    @_locked
     def record_ask(self, campaign_id: str, volunteer_id: str, shift_id: str) -> None:
         with self.conn:
             self.conn.execute(
@@ -148,6 +172,7 @@ class Store:
                 (campaign_id, volunteer_id, shift_id),
             )
 
+    @_locked
     def asks_today(self, volunteer_id: str) -> int:
         row = self.conn.execute(
             "SELECT COUNT(*) AS n FROM asks "
@@ -156,6 +181,7 @@ class Store:
         ).fetchone()
         return int(row["n"])
 
+    @_locked
     def receipts(self, campaign_id: str = "") -> list[dict]:
         if campaign_id:
             rows = self.conn.execute(
@@ -166,6 +192,7 @@ class Store:
             rows = self.conn.execute("SELECT * FROM receipts ORDER BY id").fetchall()
         return [dict(r) for r in rows]
 
+    @_locked
     def get_shift(self, shift_id: str) -> Shift:
         row = self.conn.execute(
             "SELECT * FROM shifts WHERE shift_id = ?", (shift_id,)
