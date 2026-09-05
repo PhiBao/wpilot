@@ -7,22 +7,32 @@ roster — and only interrupts the coordinator when a human actually needs to de
 Built for the **Agents for Humans** hackathon (Good Neighbor track) with the
 [Strands Agents SDK](https://strandsagents.com/).
 
+**Live demo:** https://wpilot-ui.vercel.app · **Demo console:** https://wpilot-ui.vercel.app/demo
+*(the demo console points at the API URL in `NEXT_PUBLIC_WPILOT_API`; see `docs/DEPLOY.md`)*
+
 ## Layout
 
-- `wpilot-agent/` — Python agent service (Strands): campaign loop, tools, policy,
-  messaging, receipts, evals. See `wpilot-agent/README.md`.
-- `wpilot-ui/` — Next.js coordinator console + volunteer confirm page + demo
-  console (scaffold lands Sep 9 per build plan).
+- `wpilot-agent/` — Python service: campaign engine, policy, messaging, receipts,
+  Strands agent with approval interrupts, FastAPI demo server, evals.
+  Quickstart in `wpilot-agent/README.md`. Eval report: `wpilot-agent/evals/report.md` (10/10).
+- `wpilot-ui/` — Next.js console: coordinator page `/`, demo console `/demo`,
+  no-login volunteer page `/confirm/[messageId]`. Quickstart in `wpilot-ui/README.md`.
+- `docs/` — `ARCHITECTURE.md` (diagram) · `SUBMISSION.md` (Devpost text) ·
+  `VIDEO-SCRIPT.md` · `BUILDER-POST.md` (bonus-post draft) · `DEPLOY.md` (runbook).
+- `Dockerfile.api` + `fly.toml` — demo API image (verified locally).
 
-## Quickstart (agent)
+## One-command checks
 
 ```bash
-cd wpilot-agent
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-python -m wpilot.hello
+cd wpilot-agent && source .venv/bin/activate
+python -m pytest -q            # 27 passed
+python -m evals.run_evals      # 10/10 scenarios passed
 ```
 
 ## Status
 
-Day 5 scaffold. See build plan in project thread. License: MIT.
+Working entry: engine + policy + interrupts + API + UI + evals, all verified.
+Remaining (needs human clicks): Fly API deploy + Vercel env update, video
+recording, Devpost submit, AWS credits form (by Sep 11). See `docs/DEPLOY.md`.
+
+License: MIT.

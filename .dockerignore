@@ -1,0 +1,11 @@
+.git/
+.gitignore
+wpilot-agent/.venv/
+wpilot-agent/sessions/
+wpilot-agent/evals/
+wpilot-agent/tests/
+wpilot-agent/__pycache__/
+wpilot-ui/
+**/__pycache__/
+**/*.pyc
+.opencode/

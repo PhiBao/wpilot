@@ -1,0 +1,21 @@
+# wpilot demo API image. Build context: repo root.
+# The demo server is single-process by design (in-memory inbox + SQLite);
+# fly keeps one machine always warm so judge clicks share state.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/wpilot-agent/src
+
+WORKDIR /app
+COPY wpilot-agent/src ./wpilot-agent/src
+COPY wpilot-agent/seeds ./wpilot-agent/seeds
+COPY wpilot-agent/pyproject.toml ./wpilot-agent/
+
+RUN pip install --no-cache-dir \
+      fastapi==0.141.1 \
+      uvicorn==0.52.4 \
+      strands-agents==1.54.0
+
+EXPOSE 8000
+CMD ["uvicorn", "wpilot.server:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,49 @@
+# Deploy runbook — the steps only you can click
+
+## 0. Prereqs (done in this session)
+
+- UI live: https://wpilot-ui.vercel.app (API env currently placeholder)
+- API image verified locally (`docker build -f Dockerfile.api`, smoke-tested)
+- `fly.toml` targets app `wpilot-api` → https://wpilot-api.fly.dev
+- AWS credits: request by **Sep 11, 12pm PT** (form in Devpost Resources tab)
+
+## 1. API → Fly.io (needs your login; ~5 min)
+
+```bash
+cd /home/kiter/agentsforhumans
+fly auth login
+fly launch --no-deploy   # accept app name wpilot-api, region iad, no postgres/redis
+fly deploy               # builds Dockerfile.api, one warm 512MB machine
+fly open                 # confirm /api/health says ok
+```
+
+Why warm (`auto_stop_machines = "off"`): the demo keeps roster + inbox in
+memory so judge clicks share state. Costs pennies for two weeks; scale to
+zero after judging (`fly scale count 0`).
+
+## 2. Point the UI at the API (~2 min)
+
+```bash
+cd wpilot-ui
+printf 'https://wpilot-api.fly.dev' | vercel env add NEXT_PUBLIC_WPILOT_API production --force
+vercel --prod --yes
+```
+
+Then open https://wpilot-ui.vercel.app/demo and run the video-script flow once.
+
+## 3. AWS follow-ups (your account + credits)
+
+- **AgentCore (judging boost):** `pip install bedrock-agentcore`, wrap
+  `wpilot-agent/src/wpilot/agent.py:build_agent` with `@app.entrypoint`,
+  `agentcore deploy`. The `/api/agent/*` paths already exercise this loop.
+- **SES real email:** verify one sender identity (sandbox), set
+  `WPILOT_SES_SENDER`, implement `SesChannel` beside `InteractiveChannel`.
+- **EventBridge:** hourly `POST /api/campaigns` per open shift (scan first via
+  `GET /api/shifts`, only run where `gap > 0`).
+
+## 4. Submit (before Sep 14, 5pm PDT)
+
+1. Record the video from `docs/VIDEO-SCRIPT.md` (≤5 min, YouTube/Vimeo public)
+2. Paste `docs/SUBMISSION.md` into Devpost, link repo + live demo URLs
+3. Publish 2 builder.aws posts from `docs/BUILDER-POST.md` (+0.4 bonus)
+4. Submit early (Sep 13) — code freezes, video can be re-recorded
