@@ -5,7 +5,12 @@
 - UI: https://wpilot-ui.vercel.app (Vercel, points at AWS API)
 - API: https://fpxyvjfpc5.us-east-1.awsapprunner.com (App Runner, us-east-1)
 - ECR: `381492277789.dkr.ecr.us-east-1.amazonaws.com/wpilot-api:apprunner`
-- AgentCore runtime: in progress (arm64 image building)
+- AgentCore runtime: **blocked on AWS-side quota** (`maxAgents limit exceeded`
+  with 0 runtimes = quota is 0). Fix: Service Quotas console → *Amazon
+  Bedrock AgentCore* → request increase of agent runtimes (or Support Center
+  case). Do this ASAP — approval can take days. Script ready:
+  `AWS_PROFILE=wpilot python deploy/agentcore_deploy.py` (role + runtime +
+  wait + smoke invoke). Arm64 image already in ECR (`wpilot-agent:agentcore`).
 - SES sender `kiter0211@gmail.com`: verification email sent — click the link
 - AWS credits: request by **Sep 11, 12pm PT** (form in Devpost Resources tab)
 
