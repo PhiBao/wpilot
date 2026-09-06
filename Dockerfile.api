@@ -15,7 +15,9 @@ COPY wpilot-agent/pyproject.toml ./wpilot-agent/
 RUN pip install --no-cache-dir \
       fastapi==0.141.1 \
       uvicorn==0.52.4 \
-      strands-agents==1.54.0
+      strands-agents==1.54.0 \
+      anthropic==1.4.0 \
+      openai==3.8.0
 
 EXPOSE 8000
 CMD ["uvicorn", "wpilot.server:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -10,6 +10,10 @@ dependencies = [
   "bedrock-agentcore==1.22.0",
   "fastapi==0.141.1",
   "uvicorn==0.52.4",
+  # Model providers for the agent loop (resolved by env in resolve_model).
+  # Bedrock needs no extra package (SigV4 or AWS_BEARER_TOKEN_BEDROCK chain).
+  "anthropic==1.4.0",
+  "openai==3.8.0",
 ]
 
 [project.optional-dependencies]

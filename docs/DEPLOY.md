@@ -11,6 +11,13 @@
   case). Do this ASAP — approval can take days. Script ready:
   `AWS_PROFILE=wpilot python deploy/agentcore_deploy.py` (role + runtime +
   wait + smoke invoke). Arm64 image already in ECR (`wpilot-agent:agentcore`).
+- Bedrock data plane (verified Sep 6): control plane OK (models ACTIVE),
+  but **InvokeModel returns `Operation not allowed` on every model/region** —
+  account-verification guardrail, same root cause as quota 0. IAM is fine;
+  regions won't help. Plan: run the live Strands loop on Anthropic/OpenAI
+  (Strands is model-portable; swap-back is config-only), keys via App Runner
+  env + local `.env`. Bearer-token "mantle" endpoint not needed — SigV4 path
+  is already authorized.
 - SES sender `kiter0211@gmail.com`: verification email sent — click the link
 - AWS credits: request by **Sep 11, 12pm PT** (form in Devpost Resources tab)
 

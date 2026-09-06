@@ -15,6 +15,7 @@ agent can act on (ask the next candidate, or escalate).
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -228,6 +229,28 @@ def build_tools(
     return [list_gaps, rank_candidates, send_offer, check_reply, book_slot, log_receipt]
 
 
+def resolve_model():
+    """Model portability: Anthropic > OpenAI > Bedrock default.
+
+    The agent loop, tools, and interrupts are identical on every provider;
+    only auth changes. WPILOT_MODEL_ID overrides the provider default.
+    Bedrock bearer-token auth (mantle) is picked up from
+    AWS_BEARER_TOKEN_BEDROCK automatically by the AWS SDK chain.
+    """
+    override = os.environ.get("WPILOT_MODEL_ID")
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        from strands.models.anthropic import AnthropicModel
+
+        kw = {"model_id": override} if override else {}
+        return AnthropicModel(**kw)
+    if os.environ.get("OPENAI_API_KEY"):
+        from strands.models.openai import OpenAIModel
+
+        kw = {"model_id": override} if override else {}
+        return OpenAIModel(**kw)
+    return None  # Strands Bedrock default (SigV4 or bearer chain)
+
+
 def build_agent(
     store: Store,
     channel: SimulatedChannel,
@@ -238,6 +261,11 @@ def build_agent(
     so a paused campaign (interrupt) survives process restarts."""
     session_dir = Path(session_dir)
     session_dir.mkdir(parents=True, exist_ok=True)
+    kwargs: dict[str, Any] = {}
+    model = resolve_model()
+    if model is not None:
+        kwargs["model"] = model
+    # model=None would override the Strands Bedrock default — omit instead.
     return Agent(
         system_prompt=SYSTEM_PROMPT,
         tools=build_tools(store, channel),
@@ -246,4 +274,5 @@ def build_agent(
             session_id=session_id, storage_dir=str(session_dir)
         ),
         callback_handler=None,
+        **kwargs,
     )
