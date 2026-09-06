@@ -1,20 +1,23 @@
 # Deploy runbook — the steps only you can click
 
-## 0. Prereqs (done in this session)
+## 0. Status (live)
 
-- UI live: https://wpilot-ui.vercel.app (API env currently placeholder)
-- API image verified locally (`docker build -f Dockerfile.api`, smoke-tested)
-- `fly.toml` targets app `wpilot-api` → https://wpilot-api.fly.dev
+- UI: https://wpilot-ui.vercel.app (Vercel, points at AWS API)
+- API: https://fpxyvjfpc5.us-east-1.awsapprunner.com (App Runner, us-east-1)
+- ECR: `381492277789.dkr.ecr.us-east-1.amazonaws.com/wpilot-api:apprunner`
+- AgentCore runtime: in progress (arm64 image building)
+- SES sender `kiter0211@gmail.com`: verification email sent — click the link
 - AWS credits: request by **Sep 11, 12pm PT** (form in Devpost Resources tab)
 
-## 1. API → Fly.io (needs your login; ~5 min)
+## 1. Fly.io fallback (only if AWS has issues)
+
+`fly.toml` targets app `wpilot-api` → https://wpilot-api.fly.dev :
 
 ```bash
 cd /home/kiter/agentsforhumans
 fly auth login
 fly launch --no-deploy   # accept app name wpilot-api, region iad, no postgres/redis
 fly deploy               # builds Dockerfile.api, one warm 512MB machine
-fly open                 # confirm /api/health says ok
 ```
 
 Why warm (`auto_stop_machines = "off"`): the demo keeps roster + inbox in

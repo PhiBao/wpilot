@@ -8,7 +8,7 @@ Built for the **Agents for Humans** hackathon (Good Neighbor track) with the
 [Strands Agents SDK](https://strandsagents.com/).
 
 **Live demo:** https://wpilot-ui.vercel.app · **Demo console:** https://wpilot-ui.vercel.app/demo
-*(the demo console points at the API URL in `NEXT_PUBLIC_WPILOT_API`; see `docs/DEPLOY.md`)*
+**Live API:** https://fpxyvjfpc5.us-east-1.awsapprunner.com/api/health (App Runner, us-east-1)
 
 ## Layout
 
