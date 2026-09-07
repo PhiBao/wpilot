@@ -90,4 +90,9 @@ export const api = {
       body: JSON.stringify({ body: answer }),
     }),
   reset: () => req<{ ok: boolean }>("/api/demo/reset", { method: "POST" }),
+  undo: (campaign_id: string, shift_id: string) =>
+    req<{ ok: boolean; gap: number }>(
+      `/api/campaigns/${encodeURIComponent(campaign_id)}/undo`,
+      { method: "POST", body: JSON.stringify({ shift_id }) }
+    ),
 };

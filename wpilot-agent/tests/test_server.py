@@ -1,5 +1,7 @@
 """Server API tests (FastAPI TestClient, scripted instant replies)."""
 
+import os
+
 from fastapi.testclient import TestClient
 
 from wpilot.server import STATE, app
@@ -8,6 +10,7 @@ client = TestClient(app)
 
 
 def setup_function(_):
+    os.environ["WPILOT_CLOCK"] = "2026-09-09T12:00:00"  # pinned: never quiet hours
     STATE.reset()
     # Instant answers so campaigns resolve without waiting.
     STATE.channel.scripted_replies = {
@@ -54,6 +57,18 @@ def test_offer_answer_flow():
 def test_unknown_shift_404():
     r = client.post("/api/campaigns", json={"shift_id": "NOPE"})
     assert r.status_code == 404
+
+
+def test_undo_endpoint_reverts_booking():
+    r = client.post("/api/campaigns", json={"shift_id": "S1"})
+    cid = r.json()["campaign_id"]
+    assert r.json()["outcome"] == "FILLED"
+    u = client.post(f"/api/campaigns/{cid}/undo", json={"shift_id": "S1"})
+    assert u.status_code == 200 and u.json()["gap"] == 1
+    shifts = {s["shift_id"]: s for s in client.get("/api/shifts").json()}
+    assert shifts["S1"]["status"] == "open"
+    again = client.post(f"/api/campaigns/{cid}/undo", json={"shift_id": "S1"})
+    assert again.status_code == 404  # no double-undo
 
 
 def test_reset_restores_gaps():

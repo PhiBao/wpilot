@@ -68,7 +68,7 @@ def test_agent_builds_with_all_tools(tmp_path):
     names = {t.tool_name for t in build_tools(store, SimulatedChannel({}))}
     assert names == {
         "list_gaps", "rank_candidates", "send_offer",
-        "check_reply", "book_slot", "log_receipt",
+        "check_reply", "book_slot", "log_receipt", "undo_booking",
     }
     agent = build_agent(store, SimulatedChannel({}), session_dir=tmp_path)
     assert agent.hooks.has_callbacks()

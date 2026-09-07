@@ -50,6 +50,14 @@ CREATE TABLE IF NOT EXISTS asks (
     volunteer_id TEXT NOT NULL,
     shift_id TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    campaign_id TEXT NOT NULL,
+    shift_id TEXT NOT NULL,
+    slots_filled_before INTEGER NOT NULL,
+    undone INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -147,12 +155,54 @@ class Store:
             if shift.gap <= 0:
                 raise ValueError(f"shift {shift_id} already full")
             self.conn.execute(
+                "INSERT INTO snapshots (campaign_id, shift_id, slots_filled_before)"
+                " VALUES (?,?,?)",
+                (campaign_id, shift_id, shift.slots_filled),
+            )
+            self.conn.execute(
                 "UPDATE shifts SET slots_filled = slots_filled + 1 WHERE shift_id = ?",
                 (shift_id,),
             )
             self.conn.execute(
                 "INSERT INTO receipts (campaign_id, kind, detail) VALUES (?,?,?)",
                 (campaign_id, "slot_filled", detail),
+            )
+        return self.get_shift(shift_id)
+
+    @_locked
+    def undo_booking(self, campaign_id: str, shift_id: str) -> Shift:
+        """Undo one booking from a campaign. Consumes the campaign's latest
+        snapshot so repeats fail loudly instead of double-undoing; removes
+        exactly one fill and receipts the revert."""
+        with self.conn:
+            row = self.conn.execute(
+                "SELECT * FROM snapshots WHERE campaign_id = ? AND shift_id = ?"
+                " AND undone = 0 ORDER BY id DESC LIMIT 1",
+                (campaign_id, shift_id),
+            ).fetchone()
+            if row is None:
+                raise ValueError(
+                    f"nothing to undo for {campaign_id}/{shift_id}"
+                )
+            current = self._row_to_shift(
+                self.conn.execute(
+                    "SELECT * FROM shifts WHERE shift_id = ?", (shift_id,)
+                ).fetchone()
+            )
+            if current.slots_filled <= 0:
+                raise ValueError(f"shift {shift_id} is already empty")
+            restored = current.slots_filled - 1
+            self.conn.execute(
+                "UPDATE shifts SET slots_filled = ? WHERE shift_id = ?",
+                (restored, shift_id),
+            )
+            self.conn.execute(
+                "UPDATE snapshots SET undone = 1 WHERE id = ?", (row["id"],)
+            )
+            self.conn.execute(
+                "INSERT INTO receipts (campaign_id, kind, detail) VALUES (?,?,?)",
+                (campaign_id, "booking_undone",
+                 f"reverted {shift_id} to {restored} filled (was {current.slots_filled})"),
             )
         return self.get_shift(shift_id)
 

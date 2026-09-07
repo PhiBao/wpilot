@@ -85,3 +85,17 @@ def test_fill_slot_is_atomic_and_receipted(store: Store):
     assert len(receipts) == 1 and receipts[0]["kind"] == "slot_filled"
     with pytest.raises(ValueError):
         store.fill_slot("S2", "C-test", "overfill attempt")  # S2 already full
+
+
+def test_undo_restores_gap_and_cannot_double_undo(store: Store):
+    before = store.get_shift("S1").slots_filled
+    store.fill_slot("S1", "C-undo", "V1 accepted")
+    assert store.get_shift("S1").slots_filled == before + 1
+    undone = store.undo_booking("C-undo", "S1")
+    assert undone.slots_filled == before
+    kinds = [r["kind"] for r in store.receipts("C-undo")]
+    assert kinds == ["slot_filled", "booking_undone"]
+    with pytest.raises(ValueError):
+        store.undo_booking("C-undo", "S1")  # snapshot consumed
+    with pytest.raises(ValueError):
+        store.undo_booking("C-nope", "S1")  # no snapshot at all

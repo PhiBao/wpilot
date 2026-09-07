@@ -72,6 +72,16 @@ export default function ConsolePage() {
     }
   }
 
+  async function undo(campaign_id: string, shift_id: string) {
+    setError("");
+    try {
+      await api.undo(campaign_id, shift_id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   const needsYou = campaigns.filter(
     (c) => c.outcome === "ESCALATED" || c.needs_review
   );
@@ -142,6 +152,15 @@ export default function ConsolePage() {
               {c.outcome.toLowerCase()}
             </span>
           </div>
+          {c.outcome === "FILLED" && (
+            <button
+              style={{ marginTop: 8 }}
+              onClick={() => undo(c.campaign_id, c.shift_id)}
+              title="Revert this booking (snapshot undo, fully receipted)"
+            >
+              Undo booking
+            </button>
+          )}
           <details>
             <summary className="meta">Receipts ({c.receipts.length})</summary>
             <ul className="receipts">

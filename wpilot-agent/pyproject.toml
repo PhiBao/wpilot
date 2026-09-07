@@ -14,6 +14,8 @@ dependencies = [
   # Bedrock needs no extra package (SigV4 or AWS_BEARER_TOKEN_BEDROCK chain).
   "anthropic==1.4.0",
   "openai==3.8.0",
+  # Local-provider fallback for offline loop verification (OllamaModel).
+  "ollama==0.6.2",
 ]
 
 [project.optional-dependencies]

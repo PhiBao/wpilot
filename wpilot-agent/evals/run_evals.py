@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .scenarios import SCENARIOS
+from .trajectory import run_all as run_trajectories
 
 REPORT = __file__.replace("run_evals.py", "report.md")
 
@@ -22,6 +23,10 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001 — evals must report, not crash
             failed += 1
             rows.append((s.name, "ERROR", s.guarantee, f"{type(e).__name__}: {e}"))
+    for name, result, detail in run_trajectories():
+        if result != "PASS":
+            failed += 1
+        rows.append((name, result, "Trajectory matches a safe run shape.", detail))
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [

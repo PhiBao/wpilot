@@ -226,7 +226,19 @@ def build_tools(
         store.add_receipt(campaign_id, kind, detail)
         return "LOGGED"
 
-    return [list_gaps, rank_candidates, send_offer, check_reply, book_slot, log_receipt]
+    @tool
+    def undo_booking(campaign_id: str, shift_id: str) -> str:
+        """Revert one booking from a campaign (e.g. volunteer double-booked
+        or coordinator correction). Receipted; repeats fail safely."""
+        try:
+            updated = store.undo_booking(campaign_id, shift_id)
+        except (KeyError, ValueError) as e:
+            return f"FAILED: {e}"
+        return (f"UNDONE: {shift_id} reverted to "
+                f"{updated.slots_filled}/{updated.slots_needed} filled.")
+
+    return [list_gaps, rank_candidates, send_offer, check_reply, book_slot,
+            log_receipt, undo_booking]
 
 
 def resolve_model():

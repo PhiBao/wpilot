@@ -29,6 +29,14 @@ from .store import Store
 SEEDS_DIR = Path(__file__).resolve().parent.parent.parent / "seeds"
 SESSIONS_DIR = Path(__file__).resolve().parent.parent.parent / "sessions"
 
+
+def _now() -> datetime:
+    """Injectable clock: WPILOT_CLOCK (ISO) pins time in tests/demos."""
+    import os
+
+    raw = os.environ.get("WPILOT_CLOCK")
+    return datetime.fromisoformat(raw) if raw else datetime.now()
+
 app = FastAPI(title="wpilot demo API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -73,6 +81,10 @@ class RunCampaign(BaseModel):
 
 class PostReply(BaseModel):
     body: str
+
+
+class UndoBooking(BaseModel):
+    shift_id: str
 
 
 class AgentRun(BaseModel):
@@ -120,7 +132,8 @@ def run_campaign(req: RunCampaign) -> dict[str, Any]:
         except KeyError:
             raise HTTPException(404, f"unknown shift {req.shift_id}")
         engine = Engine(
-            STATE.store, STATE.channel, reply_timeout_seconds=req.reply_timeout_seconds
+            STATE.store, STATE.channel, reply_timeout_seconds=req.reply_timeout_seconds,
+            now=_now(),
         )
         result = engine.run_for_shift(req.shift_id)
     finally:
@@ -130,6 +143,19 @@ def run_campaign(req: RunCampaign) -> dict[str, Any]:
     record["receipts"] = STATE.store.receipts(result.campaign_id)
     STATE.campaigns.append(record)
     return record
+
+
+@app.post("/api/campaigns/{campaign_id}/undo")
+def undo_campaign_booking(campaign_id: str, req: UndoBooking) -> dict[str, Any]:
+    try:
+        updated = STATE.store.undo_booking(campaign_id, req.shift_id)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(404, str(e))
+    for record in STATE.campaigns:
+        if record["campaign_id"] == campaign_id:
+            record["receipts"] = STATE.store.receipts(campaign_id)
+    return {"ok": True, "shift_id": updated.shift_id,
+            "slots_filled": updated.slots_filled, "gap": updated.gap}
 
 
 @app.get("/api/inbox")
