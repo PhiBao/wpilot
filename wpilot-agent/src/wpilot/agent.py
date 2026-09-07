@@ -167,17 +167,28 @@ def build_tools(
 
         if _messaging.in_quiet_hours(_now()):
             return "DEFERRED: quiet hours (21:00-08:00) — do not text now."
-        volunteer = next(
-            v for v in store.volunteers() if v.volunteer_id == volunteer_id
-        )
-        shift = store.get_shift(shift_id)
+        try:
+            volunteer = next(
+                v for v in store.volunteers() if v.volunteer_id == volunteer_id
+            )
+        except StopIteration:
+            return (f"FAILED: unknown volunteer_id {volunteer_id!r} — call "
+                    f"rank_candidates for {shift_id} and use an ID from that list.")
+        try:
+            shift = store.get_shift(shift_id)
+        except KeyError:
+            return (f"FAILED: unknown shift_id {shift_id!r} — call list_gaps "
+                    f"and use an ID from that list.")
         ok, reason = is_eligible(shift, volunteer)
         if not ok:
             return f"BLOCKED: {reason}."
         if store.asks_today(volunteer_id) >= _messaging.MAX_ASKS_PER_VOLUNTEER_PER_DAY:
             return f"BLOCKED: {volunteer.first_name} already asked cap times today."
         msg = channel.send(
-            volunteer.phone, offer_text(volunteer.first_name, shift)
+            volunteer.phone, offer_text(volunteer.first_name, shift),
+            meta={"shift_id": shift_id, "volunteer_id": volunteer_id,
+                  "first_name": volunteer.first_name,
+                  "campaign_id": campaign_id},
         )
         store.record_ask(campaign_id, volunteer_id, shift_id)
         store.add_receipt(
@@ -200,15 +211,33 @@ def build_tools(
                 store.add_receipt(campaign_id, "offer_reply",
                                   f"{message_id} -> {answer}")
                 return answer
-        return "UNKNOWN_MESSAGE_ID"
+        return (f"UNKNOWN_MESSAGE_ID: {message_id!r} — use the message ID "
+                f"returned by send_offer.")
 
     @tool
     def book_slot(shift_id: str, volunteer_id: str, campaign_id: str) -> str:
         """Lock a volunteer into a shift (atomic) and record the receipt.
-        May pause for coordinator approval on sensitive bookings."""
-        volunteer = next(
-            v for v in store.volunteers() if v.volunteer_id == volunteer_id
+        REFUSES without a recorded YES reply from that volunteer for this
+        shift in this campaign — the model cannot book decliners or skip
+        the human. May pause for coordinator approval on sensitive bookings."""
+        try:
+            volunteer = next(
+                v for v in store.volunteers() if v.volunteer_id == volunteer_id
+            )
+        except StopIteration:
+            return (f"FAILED: unknown volunteer_id {volunteer_id!r} — call "
+                    f"rank_candidates for {shift_id} and use an ID from that list.")
+        consent = any(
+            m.meta.get("volunteer_id") == volunteer_id
+            and m.meta.get("shift_id") == shift_id
+            and m.meta.get("campaign_id") == campaign_id
+            and parse_reply(channel.reply_for(m.message_id) or "") == "YES"
+            for m in channel.sent
         )
+        if not consent:
+            return (f"REFUSED: no recorded YES from {volunteer_id} for "
+                    f"{shift_id} in {campaign_id} — send an offer with "
+                    f"send_offer and confirm a YES via check_reply first.")
         try:
             updated = store.fill_slot(
                 shift_id, campaign_id,
@@ -222,7 +251,11 @@ def build_tools(
 
     @tool
     def log_receipt(campaign_id: str, kind: str, detail: str) -> str:
-        """Record an audit receipt (escalations, notes, deferrals)."""
+        """Record an audit receipt. kind must be escalation, note, or
+        deferral — the audit taxonomy is fixed so the trail stays queryable."""
+        if kind not in ("escalation", "note", "deferral"):
+            return ("FAILED: kind must be one of escalation, note, deferral — "
+                    f"got {kind!r}.")
         store.add_receipt(campaign_id, kind, detail)
         return "LOGGED"
 
@@ -268,23 +301,28 @@ def build_agent(
     channel: SimulatedChannel,
     session_dir: str | Path,
     session_id: str = "wpilot-demo",
+    model=None,
+    now_fn: Callable[[], datetime] | None = None,
+    callback_handler=None,
 ) -> Agent:
     """Construct the campaign agent with approval hook + persistent sessions,
-    so a paused campaign (interrupt) survives process restarts."""
+    so a paused campaign (interrupt) survives process restarts. Pass model=
+    to override provider resolution (e.g. OllamaModel for offline proofs).
+    Pass now_fn= to pin the clock (demos, tests)."""
     session_dir = Path(session_dir)
     session_dir.mkdir(parents=True, exist_ok=True)
     kwargs: dict[str, Any] = {}
-    model = resolve_model()
-    if model is not None:
-        kwargs["model"] = model
+    resolved = model if model is not None else resolve_model()
+    if resolved is not None:
+        kwargs["model"] = resolved
     # model=None would override the Strands Bedrock default — omit instead.
     return Agent(
         system_prompt=SYSTEM_PROMPT,
-        tools=build_tools(store, channel),
+        tools=build_tools(store, channel, now_fn),
         hooks=[BookingApprovalHook(store)],
         session_manager=FileSessionManager(
             session_id=session_id, storage_dir=str(session_dir)
         ),
-        callback_handler=None,
+        callback_handler=callback_handler,
         **kwargs,
     )

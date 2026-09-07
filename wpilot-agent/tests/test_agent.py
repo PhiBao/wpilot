@@ -104,3 +104,61 @@ def test_send_offer_blocks_ineligible(tmp_path):
         volunteer_id="V2", shift_id="S2", campaign_id="C-x"
     )
     assert str(result).startswith("BLOCKED")
+
+
+def _noon_tools(store, channel):
+    from datetime import datetime
+
+    return {
+        t.tool_name: t
+        for t in build_tools(store, channel,
+                             now_fn=lambda: datetime(2026, 9, 9, 12, 0))
+    }
+
+
+def test_book_slot_requires_recorded_yes():
+    from wpilot.messaging import SimulatedChannel
+
+    store = make_store()
+    tools = _noon_tools(store, SimulatedChannel({"+15550001001": "YES"}))
+    refused = tools["book_slot"]._tool_func(
+        shift_id="S1", volunteer_id="V1", campaign_id="C-x"
+    )
+    assert str(refused).startswith("REFUSED")
+    tools["send_offer"]._tool_func(
+        volunteer_id="V1", shift_id="S1", campaign_id="C-x"
+    )
+    booked = tools["book_slot"]._tool_func(
+        shift_id="S1", volunteer_id="V1", campaign_id="C-x"
+    )
+    assert str(booked).startswith("BOOKED")
+
+
+def test_book_slot_refuses_decliner_even_if_asked():
+    from wpilot.messaging import SimulatedChannel
+
+    store = make_store()
+    tools = _noon_tools(store, SimulatedChannel({"+15550001001": "NO"}))
+    tools["send_offer"]._tool_func(
+        volunteer_id="V1", shift_id="S1", campaign_id="C-x"
+    )
+    refused = tools["book_slot"]._tool_func(
+        shift_id="S1", volunteer_id="V1", campaign_id="C-x"
+    )
+    assert str(refused).startswith("REFUSED")
+    assert store.get_shift("S1").gap == 1  # roster untouched
+
+
+def test_log_receipt_kind_allowlist():
+    from wpilot.messaging import SimulatedChannel
+
+    store = make_store()
+    tools = _noon_tools(store, SimulatedChannel({}))
+    bad = tools["log_receipt"]._tool_func(
+        campaign_id="C-x", kind="slot_filled", detail="forged"
+    )
+    assert str(bad).startswith("FAILED")
+    ok = tools["log_receipt"]._tool_func(
+        campaign_id="C-x", kind="escalation", detail="pool exhausted"
+    )
+    assert str(ok) == "LOGGED"

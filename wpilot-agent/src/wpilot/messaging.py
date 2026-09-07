@@ -70,6 +70,14 @@ class SimulatedChannel:
             message_id=msg.message_id, from_phone=msg.to_phone, body=reply
         )
 
+    def reply_for(self, message_id: str) -> str | None:
+        """Recorded answer for a sent message, if any. Base class resolves
+        scripted replies (tests); InteractiveChannel prefers posted replies."""
+        msg = next((m for m in self.sent if m.message_id == message_id), None)
+        if msg is None:
+            return None
+        return self.scripted_replies.get(msg.to_phone)
+
 
 def in_quiet_hours(now: datetime | None = None) -> bool:
     hour = (now or datetime.now()).hour
@@ -97,7 +105,10 @@ class InteractiveChannel(SimulatedChannel):
         return True
 
     def reply_for(self, message_id: str) -> str | None:
-        return self.posted.get(message_id)
+        # Posted (human-tapped) answers win; scripted answers count too.
+        if message_id in self.posted:
+            return self.posted[message_id]
+        return super().reply_for(message_id)
 
     def await_reply(
         self, msg: OutboundMessage, timeout_seconds: float
