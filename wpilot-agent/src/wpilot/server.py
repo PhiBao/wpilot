@@ -100,6 +100,28 @@ def health() -> dict[str, str]:
     return {"status": "ok", "time": datetime.now().isoformat()}
 
 
+@app.get("/api/debug/provider")
+def debug_provider() -> dict[str, Any]:
+    """Presence flags only — no secret values. Tells us which model path
+    the agent loop will take in THIS container."""
+    import os
+
+    from .agent import resolve_model
+
+    try:
+        model = resolve_model()
+        provider = type(model).__name__ if model is not None else "bedrock-default"
+    except Exception as e:  # noqa: BLE001
+        return {"provider": f"resolve-error: {type(e).__name__}: {e}"}
+    return {
+        "provider": provider,
+        "has_mantle_key": bool(os.environ.get("BEDROCK_SERVICE_SECRET")),
+        "has_anthropic_key": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "has_openai_key": bool(os.environ.get("OPENAI_API_KEY")),
+        "model_override": os.environ.get("WPILOT_MODEL_ID", ""),
+    }
+
+
 @app.get("/api/shifts")
 def shifts() -> list[dict[str, Any]]:
     out = []

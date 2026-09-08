@@ -27,7 +27,8 @@ from strands.session import FileSessionManager
 from .campaign import REVIEW_RELIABILITY_BELOW, offer_text
 from .messaging import SimulatedChannel, parse_reply
 from .models import Shift, Volunteer
-from .policy import ADULT_ONLY_TAGS, is_eligible, rank_candidates
+from .policy import ADULT_ONLY_TAGS, is_eligible
+from .policy import rank_candidates as rank_policy_candidates
 from .store import Store
 
 SYSTEM_PROMPT = """You are wpilot, the backfill coordinator for a volunteer-run \
@@ -152,7 +153,7 @@ def build_tools(
     def rank_candidates(shift_id: str) -> str:
         """Ranked eligible volunteers for a shift. Returns JSON. Text them in order."""
         shift = store.get_shift(shift_id)
-        ranked = rank_candidates(shift, store.volunteers())
+        ranked = rank_policy_candidates(shift, store.volunteers())
         return json.dumps([
             {"volunteer_id": v.volunteer_id, "first_name": v.first_name,
              "reliability": v.reliability_score}
@@ -190,6 +191,7 @@ def build_tools(
                   "first_name": volunteer.first_name,
                   "campaign_id": campaign_id},
         )
+        store.record_offer(msg.message_id, campaign_id, shift_id, volunteer_id)
         store.record_ask(campaign_id, volunteer_id, shift_id)
         store.add_receipt(
             campaign_id, "offer_sent",
@@ -204,10 +206,12 @@ def build_tools(
             if sent.message_id == message_id:
                 reply = channel.await_reply(sent, timeout_seconds)
                 if reply is None:
+                    store.record_reply(message_id, "TIMEOUT")
                     store.add_receipt(campaign_id, "offer_timeout",
                                       f"{message_id} unanswered")
                     return "TIMEOUT"
                 answer = parse_reply(reply.body)
+                store.record_reply(message_id, answer)
                 store.add_receipt(campaign_id, "offer_reply",
                                   f"{message_id} -> {answer}")
                 return answer
@@ -217,9 +221,10 @@ def build_tools(
     @tool
     def book_slot(shift_id: str, volunteer_id: str, campaign_id: str) -> str:
         """Lock a volunteer into a shift (atomic) and record the receipt.
-        REFUSES without a recorded YES reply from that volunteer for this
-        shift in this campaign — the model cannot book decliners or skip
-        the human. May pause for coordinator approval on sensitive bookings."""
+        REFUSES without a durably recorded YES reply for this exact
+        (campaign, shift, volunteer) — the model cannot book decliners or
+        skip the human, in this process or any other. May pause for
+        coordinator approval on sensitive bookings."""
         try:
             volunteer = next(
                 v for v in store.volunteers() if v.volunteer_id == volunteer_id
@@ -227,14 +232,7 @@ def build_tools(
         except StopIteration:
             return (f"FAILED: unknown volunteer_id {volunteer_id!r} — call "
                     f"rank_candidates for {shift_id} and use an ID from that list.")
-        consent = any(
-            m.meta.get("volunteer_id") == volunteer_id
-            and m.meta.get("shift_id") == shift_id
-            and m.meta.get("campaign_id") == campaign_id
-            and parse_reply(channel.reply_for(m.message_id) or "") == "YES"
-            for m in channel.sent
-        )
-        if not consent:
+        if not store.consent_yes(campaign_id, shift_id, volunteer_id):
             return (f"REFUSED: no recorded YES from {volunteer_id} for "
                     f"{shift_id} in {campaign_id} — send an offer with "
                     f"send_offer and confirm a YES via check_reply first.")
@@ -260,6 +258,16 @@ def build_tools(
         return "LOGGED"
 
     @tool
+    def read_receipts(campaign_id: str) -> str:
+        """Read the audit trail for a campaign. Use it to verify what really
+        happened (who was asked, who replied, what booked) before deciding."""
+        rows = store.receipts(campaign_id)
+        return json.dumps([
+            {"kind": r["kind"], "detail": r["detail"], "at": r["created_at"]}
+            for r in rows
+        ])
+
+    @tool
     def undo_booking(campaign_id: str, shift_id: str) -> str:
         """Revert one booking from a campaign (e.g. volunteer double-booked
         or coordinator correction). Receipted; repeats fail safely."""
@@ -271,16 +279,16 @@ def build_tools(
                 f"{updated.slots_filled}/{updated.slots_needed} filled.")
 
     return [list_gaps, rank_candidates, send_offer, check_reply, book_slot,
-            log_receipt, undo_booking]
+            log_receipt, read_receipts, undo_booking]
 
 
 def resolve_model():
-    """Model portability: Anthropic > OpenAI > Bedrock default.
+    """Model portability: Anthropic > OpenAI > Bedrock mantle > Bedrock default.
 
     The agent loop, tools, and interrupts are identical on every provider;
     only auth changes. WPILOT_MODEL_ID overrides the provider default.
-    Bedrock bearer-token auth (mantle) is picked up from
-    AWS_BEARER_TOKEN_BEDROCK automatically by the AWS SDK chain.
+    Bedrock bearer-token auth (mantle, OpenAI-compatible) comes from
+    BEDROCK_SERVICE_SECRET; SigV4 default chain covers standard Bedrock.
     """
     override = os.environ.get("WPILOT_MODEL_ID")
     if os.environ.get("ANTHROPIC_API_KEY"):
@@ -293,6 +301,16 @@ def resolve_model():
 
         kw = {"model_id": override} if override else {}
         return OpenAIModel(**kw)
+    if os.environ.get("BEDROCK_SERVICE_SECRET"):
+        from strands.models.openai import OpenAIModel
+
+        return OpenAIModel(
+            client_args={
+                "api_key": os.environ["BEDROCK_SERVICE_SECRET"],
+                "base_url": "https://bedrock-mantle.us-east-1.api.aws/v1",
+            },
+            model_id=override or "mistral.ministral-3-8b-instruct",
+        )
     return None  # Strands Bedrock default (SigV4 or bearer chain)
 
 

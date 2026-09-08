@@ -127,6 +127,8 @@ class Engine:
                   "first_name": volunteer.first_name,
                   "campaign_id": campaign_id},
         )
+        self.store.record_offer(msg.message_id, campaign_id, shift.shift_id,
+                                volunteer.volunteer_id)
         self.store.record_ask(campaign_id, volunteer.volunteer_id, shift.shift_id)
         self.store.add_receipt(
             campaign_id, "offer_sent",
@@ -134,12 +136,14 @@ class Engine:
         )
         reply = self.channel.await_reply(msg, self.reply_timeout_seconds)
         if reply is None:
+            self.store.record_reply(msg.message_id, "TIMEOUT")
             self.store.add_receipt(
                 campaign_id, "offer_timeout",
                 f"{volunteer.first_name} did not reply",
             )
             return "TIMEOUT"
         answer = parse_reply(reply.body)
+        self.store.record_reply(msg.message_id, answer)
         self.store.add_receipt(
             campaign_id, "offer_reply",
             f"{volunteer.first_name} replied: {answer}",

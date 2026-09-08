@@ -58,6 +58,18 @@ CREATE TABLE IF NOT EXISTS snapshots (
     slots_filled_before INTEGER NOT NULL,
     undone INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS offers (
+    message_id TEXT PRIMARY KEY,
+    sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    campaign_id TEXT NOT NULL,
+    shift_id TEXT NOT NULL,
+    volunteer_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS replies (
+    message_id TEXT PRIMARY KEY,
+    replied_at TEXT NOT NULL DEFAULT (datetime('now')),
+    answer TEXT NOT NULL
+);
 """
 
 
@@ -230,6 +242,40 @@ class Store:
             (volunteer_id,),
         ).fetchone()
         return int(row["n"])
+
+    @_locked
+    def record_offer(self, message_id: str, campaign_id: str,
+                     shift_id: str, volunteer_id: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO offers "
+                "(message_id, campaign_id, shift_id, volunteer_id) "
+                "VALUES (?,?,?,?)",
+                (message_id, campaign_id, shift_id, volunteer_id),
+            )
+
+    @_locked
+    def record_reply(self, message_id: str, answer: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO replies (message_id, answer) "
+                "VALUES (?,?)",
+                (message_id, answer),
+            )
+
+    @_locked
+    def consent_yes(self, campaign_id: str, shift_id: str,
+                    volunteer_id: str) -> bool:
+        """Durable consent: a recorded YES reply to an offer for this exact
+        (campaign, shift, volunteer). Survives process restarts — the booking
+        tool trusts this, never the model's word."""
+        row = self.conn.execute(
+            "SELECT 1 FROM offers JOIN replies USING (message_id) "
+            "WHERE campaign_id = ? AND shift_id = ? AND volunteer_id = ? "
+            "AND answer = 'YES' LIMIT 1",
+            (campaign_id, shift_id, volunteer_id),
+        ).fetchone()
+        return row is not None
 
     @_locked
     def receipts(self, campaign_id: str = "") -> list[dict]:
