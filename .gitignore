@@ -13,3 +13,6 @@ FOUNDER.md
 *.egg-info/
 wpilot-agent/sessions/
 .vercel
+docs/media/n*.mp3
+docs/media/seg*.mp4
+docs/media/concat.txt
