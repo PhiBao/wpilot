@@ -14,10 +14,4 @@ FOUNDER.md
 *.egg-info/
 wpilot-agent/sessions/
 
-# Generated media (video pipeline in docs/media; uploads live outside git)
-docs/media/*.png
-docs/media/*.mp4
-docs/media/*.webm
-docs/media/*.mp3
-docs/media/concat.txt
 docs/media/durations.json
