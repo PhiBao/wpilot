@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type Campaign, type Shift } from "../lib/api";
+import { api, type Campaign, type Receipt, type Shift } from "../lib/api";
 
 function ShiftCard({
   shift,
@@ -41,15 +41,21 @@ function ShiftCard({
 export default function ConsolePage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
       setError("");
-      const [s, c] = await Promise.all([api.shifts(), api.campaigns()]);
+      const [s, c, r] = await Promise.all([
+        api.shifts(),
+        api.campaigns(),
+        api.receipts(),
+      ]);
       setShifts(s);
       setCampaigns(c);
+      setReceipts(r);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -63,7 +69,7 @@ export default function ConsolePage() {
     setBusy(true);
     setError("");
     try {
-      await api.runCampaign(shift_id, 60);
+      await api.runCampaign(shift_id, 300);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -84,6 +90,11 @@ export default function ConsolePage() {
 
   const needsYou = campaigns.filter(
     (c) => c.outcome === "ESCALATED" || c.needs_review
+  );
+
+  const campaignIds = new Set(campaigns.map((c) => c.campaign_id));
+  const agentReceipts = receipts.filter(
+    (r) => r.campaign_id && !campaignIds.has(r.campaign_id)
   );
 
   return (
@@ -130,10 +141,35 @@ export default function ConsolePage() {
       ))}
 
       <div className="section-title">Activity — every action, receipted</div>
-      {campaigns.length === 0 && (
+      {campaigns.length === 0 && agentReceipts.length === 0 && (
         <p className="empty">
           Nothing yet. Tap “Fill it” on an open shift and watch wpilot work.
         </p>
+      )}
+      {agentReceipts.length > 0 && (
+        <div className="card">
+          <div className="row">
+            <div>
+              <h3>{agentReceipts[0].campaign_id} — live agent run</h3>
+              <div className="meta">
+                Strands loop on Bedrock · {agentReceipts.length} receipts
+              </div>
+            </div>
+            <span className="pill covered">agent</span>
+          </div>
+          <details open>
+            <summary className="meta">
+              Receipts ({agentReceipts.length})
+            </summary>
+            <ul className="receipts">
+              {agentReceipts.map((r) => (
+                <li key={r.id}>
+                  [{r.kind}] {r.detail}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
       )}
       {[...campaigns].reverse().map((c) => (
         <div className="card" key={c.campaign_id}>

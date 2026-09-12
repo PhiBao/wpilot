@@ -6,13 +6,18 @@ node_modules/
 *.log
 .DS_Store
 .env
+.vercel
 
 opencode.*
 AGENTS.md
 FOUNDER.md
 *.egg-info/
 wpilot-agent/sessions/
-.vercel
-docs/media/n*.mp3
-docs/media/seg*.mp4
+
+# Generated media (video pipeline in docs/media; uploads live outside git)
+docs/media/*.png
+docs/media/*.mp4
+docs/media/*.webm
+docs/media/*.mp3
 docs/media/concat.txt
+docs/media/durations.json
