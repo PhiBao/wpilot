@@ -58,7 +58,8 @@ Then open https://wpilot-ui.vercel.app/demo and run the video-script flow once.
 
 ## 4. Submit (before Sep 14, 5pm PDT)
 
-1. Record the video from `docs/VIDEO-SCRIPT.md` (≤5 min, YouTube/Vimeo public)
-2. Paste `docs/SUBMISSION.md` into Devpost, link repo + live demo URLs
-3. Publish 2 builder.aws posts from `docs/BUILDER-POST.md` (+0.4 bonus)
+1. Upload the recorded demo video (≤5 min, YouTube/Vimeo public) — upload-ready
+   file and storyboard live outside git in `~/wpilot-media/`
+2. Paste the submission text into Devpost; link repo + live demo URLs
+3. Publish 2 builder.aws posts (+0.4 bonus)
 4. Submit early (Sep 13) — code freezes, video can be re-recorded

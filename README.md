@@ -8,7 +8,7 @@ Built for the **Agents for Humans** hackathon (Good Neighbor track) with the
 [Strands Agents SDK](https://strandsagents.com/).
 
 **Live demo:** https://wpilot-ui.vercel.app · **Demo console:** https://wpilot-ui.vercel.app/demo
-**Live API:** https://fpxyvjfpc5.us-east-1.awsapprunner.com · **Demo video:** 3½-min narrated walkthrough (uploaded to YouTube for submission; rebuild with `docs/media/`)
+**Live API:** https://fpxyvjfpc5.us-east-1.awsapprunner.com · **Demo video:** 3½-min narrated walkthrough (uploaded to YouTube for submission)
 **Evals:** `wpilot-agent/evals/report.md` (15/15) · **License:** MIT
 
 ---
@@ -181,10 +181,8 @@ engine path (same safety rails, no LLM).
   evals (`evals/report.md`), loop proof (`docs/LOOP-PROOF.md`).
 - `wpilot-ui/` — Next.js console `/`, demo console `/demo`, no-login
   volunteer page `/confirm/[messageId]`.
-- `docs/` — `ARCHITECTURE.md` · `SUBMISSION-FORM.md` (Devpost answers) ·
-  `SUBMISSION.md` · `VIDEO-SCRIPT.md` · `LOOP-PROOF.md` · `BUILDER-POST.md` ·
-  `DEPLOY.md` · `media/` (video pipeline: cards, recorder, assembler;
-  generated media is gitignored).
+- `docs/` — `ARCHITECTURE.md` (diagram + components) · `LOOP-PROOF.md`
+  (live agent loop transcript) · `DEPLOY.md` (runbook).
 - `deploy/` — `agentcore_deploy.py` (Bedrock AgentCore, quota-pending),
   `apprunner_env.py` (runtime env without redeploy).
 - `Dockerfile.api` / `Dockerfile.agentcore` / `fly.toml` — container targets.
